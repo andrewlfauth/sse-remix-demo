@@ -1,40 +1,28 @@
-import { ActionFunctionArgs } from '@remix-run/node'
-import { useEventSource } from 'remix-utils/sse/react'
-import {
-  Form,
-  useLoaderData,
-  useResolvedPath,
-  useRevalidator,
-} from '@remix-run/react'
+import { ActionFunctionArgs, LoaderFunction } from '@remix-run/node'
+import { Form } from '@remix-run/react'
 import { getAllMessages, saveMessage } from '~/utils/messages'
 import { emitter } from '~/utils/emitter.server'
-import { useEffect } from 'react'
+import { useLiveLoader } from '~/utils/use-live-loader'
 
 export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData()
   const message = formData.get('message') as string
   await saveMessage(message)
 
-  emitter.emit('message', message)
+  // If we had nested or dynamic routes we would want to use unique eventnames (ex. params) to avoid listening for events on irrelevant routes.
+
+  emitter.emit('chat-message', message)
 
   return null
 }
 
-export async function loader() {
-  const allMessages = getAllMessages()
+export const loader: LoaderFunction = async () => {
+  const allMessages = await getAllMessages()
   return allMessages
 }
 
 function Index() {
-  const messages: string[] = useLoaderData()
-  const path = useResolvedPath('./stream')
-  const data = useEventSource(path.pathname)
-
-  const { revalidate } = useRevalidator()
-
-  useEffect(() => {
-    revalidate()
-  }, [data])
+  const messages = useLiveLoader()
 
   return (
     <div className="h-screen w-full max-w-xl ">
